@@ -512,9 +512,10 @@
                         name: row['車站名稱'],
                         en: row['英文站名'],
                         county: row['所在行政區'],
-                        rank: parseInt(row['車站運量排名']) || 999
+                        rank: parseInt(row['車站運量排名']) || 999,
+                        // 新增下面這一行來抓取人次
+                        volume: row['日平均進出站量 (人次)'] 
                     })).filter(s => s.name && s.name !== '臺北' && s.name !== '台北');
-
                     // 初始化套用篩選
                     applyFilterLogic();
                 },
@@ -637,6 +638,7 @@
             document.getElementById('ticket-dest-en').innerText = finalStationObj.en || '';
             document.getElementById('ticket-county').innerText = finalStationObj.county || '';
             document.getElementById('ticket-rank').innerText = finalStationObj.rank || '?';
+            document.getElementById('ticket-volume').innerText = finalStationObj.volume || '?';
 
             setTimeout(() => {
                 dispenseTicketObj.classList.add('dispense-anim');
