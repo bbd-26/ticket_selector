@@ -9,10 +9,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background-color: #1a1a2e; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #1a1a2e; 
+            margin: 0; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            /* 修改處：改用 100dvh (動態視窗高度)，並加入內距把機台往下推 */
+            height: 100dvh; 
+            padding: 40px 15px 20px 15px; /* 上方預留 40px 給手機狀態列 */
+            box-sizing: border-box;
+        }
         
-        .vending-machine { width: 100%; max-width: 400px; height: 100vh; max-height: 850px; background: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%); border-radius: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 20px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; position: relative; border: 4px solid #757575; overflow: hidden; }
-        
+        .vending-machine { 
+            width: 100%; 
+            max-width: 400px; 
+            /* 修改處：把原本的 100vh 改成 100%，讓機台縮在安全範圍內 */
+            height: 100%; 
+            max-height: 850px; 
+            background: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%); 
+            border-radius: 20px; 
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 20px 50px rgba(0,0,0,0.5); 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            border: 4px solid #757575; 
+            overflow: hidden; 
+        }
         /* 頂部招牌加入設定按鈕 */
         .machine-header { background-color: #003366; color: #fff; text-align: center; padding: 15px 0; font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; border-bottom: 4px solid #ffcc00; position: relative; }
         .settings-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; background: #2c3e50; border: 2px solid #ffcc00; color: #ffcc00; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: all 0.2s; }
