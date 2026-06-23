@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>臺北出發 - 車站抽抽樂</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #1a1a2e; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        .vending-machine { width: 100%; max-width: 400px; height: 100vh; max-height: 850px; background: linear-gradient(135deg, #e0e0e0 0%, #9e9e9e 100%); border-radius: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 20px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; position: relative; border: 4px solid #757575; overflow: hidden; }
+        
+        /* 頂部招牌加入設定按鈕 */
+        .machine-header { background-color: #003366; color: #fff; text-align: center; padding: 15px 0; font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; border-bottom: 4px solid #ffcc00; position: relative; }
+        .settings-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 0.9rem; background: #2c3e50; border: 2px solid #ffcc00; color: #ffcc00; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 700; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: all 0.2s; }
+        .settings-btn:active { transform: translateY(-40%); box-shadow: 0 0px 0px rgba(0,0,0,0.3); }
+
+        .screen-container { margin: 30px 20px; background-color: #111; border-radius: 15px; padding: 10px; border: 5px solid #333; }
+        .screen { background: radial-gradient(circle, #005a8d 0%, #001a33 100%); height: 220px; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #00ffcc; font-family: 'Share Tech Mono', 'Noto Sans TC', monospace; text-shadow: 0 0 5px #00ffcc; position: relative; overflow: hidden; text-align: center;}
+        .screen::after { content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); z-index: 2; background-size: 100% 2px, 3px 100%; pointer-events: none; }
+        .screen-text { font-size: 1.2rem; margin-bottom: 15px; }
+        .screen-dest { font-size: 2.2rem; font-weight: 900; color: #ffcc00; text-shadow: 0 0 10px #ffcc00; min-height: 60px;}
+
+        .machine-controls { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 8px 0 #1a252f, 0 15px 20px rgba(0,0,0,0.5), inset 0 8px 10px rgba(255,255,255,0.6), 0 0 0 rgba(255, 217, 0, 0.4); }
+            50% { box-shadow: 0 8px 0 #1a252f, 0 15px 20px rgba(0,0,0,0.5), inset 0 8px 10px rgba(255,255,255,0.6), 0 0 25px rgba(255, 217, 0, 0.9); }
+            100% { box-shadow: 0 8px 0 #1a252f, 0 15px 20px rgba(0,0,0,0.5), inset 0 8px 10px rgba(255,255,255,0.6), 0 0 0 rgba(255, 217, 0, 0.4); }
+        }
+        .draw-btn { background: radial-gradient(circle at 50% 30%, #ffde21, #f39c12); border: 8px solid #2c3e50; border-radius: 50%; width: 130px; height: 130px; color: #2c3e50; font-weight: 900; font-size: 1.3rem; cursor: pointer; box-shadow: 0 8px 0 #1a252f, 0 15px 20px rgba(0,0,0,0.5), inset 0 8px 10px rgba(255,255,255,0.8); transition: transform 0.1s, box-shadow 0.1s; display: flex; justify-content: center; align-items: center; user-select: none; letter-spacing: 2px; }
+        .draw-btn:not(:disabled) { animation: pulse-glow 2s infinite; }
+        .draw-btn:active, .draw-btn.pressed { transform: translateY(8px); box-shadow: 0 0px 0 #1a252f, 0 5px 10px rgba(0,0,0,0.5), inset 0 4px 5px rgba(255,255,255,0.6); animation: none; background: radial-gradient(circle at 50% 30%, #f39c12, #d68910); }
+        .draw-btn:disabled { background: radial-gradient(circle at 50% 30%, #95a5a6, #7f8c8d); cursor: not-allowed; color: #ecf0f1; animation: none; }
+
+        .dispenser-area { height: 150px; background-color: #333; border-top: 5px solid #222; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px; display: flex; justify-content: center; align-items: flex-start; position: relative; box-shadow: inset 0 10px 20px rgba(0,0,0,0.8); z-index: 10; overflow: hidden; }
+        .dispenser-slot { width: 70%; height: 15px; background-color: #000; margin-top: 20px; border-radius: 10px; border-bottom: 2px solid #555; position: relative; z-index: 6; box-shadow: inset 0 5px 10px rgba(0,0,0,1); }
+        .ticket-wrapper { position: absolute; top: 25px; left: 50%; transform: translateX(-50%) translateY(-150%); z-index: 5; transition: transform 1s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.1s; width: 65%; max-width: 260px; opacity: 0; }
+        .small-ticket-preview { background-color: #fdf6e3; border-radius: 4px; padding: 15px 10px; height: 180px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); border: 1px solid #ccc; }
+        
+        .overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; backdrop-filter: blur(5px); }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+
+        /* 篩選面板設計 */
+        .filter-modal { background-color: #f4f4f4; width: 90%; max-width: 350px; border-radius: 12px; padding: 25px; box-shadow: 0 15px 30px rgba(0,0,0,0.5); transform: translateY(50px); transition: transform 0.4s ease; border: 4px solid #2c3e50; }
+        .overlay.active .filter-modal { transform: translateY(0); }
+        .filter-title { font-size: 1.4rem; font-weight: 900; color: #2c3e50; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+        .filter-group { margin-bottom: 15px; }
+        .filter-label { font-weight: 700; color: #555; display: block; margin-bottom: 8px; font-size: 1rem; }
+        
+        .filter-input-row { display: flex; align-items: center; gap: 10px; }
+        .filter-input { width: 70px; padding: 8px; border: 2px solid #ccc; border-radius: 6px; font-size: 1rem; text-align: center; font-family: 'Share Tech Mono', monospace; font-weight: bold; }
+        
+        .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 500; cursor: pointer; padding: 5px; background: #e8e8e8; border-radius: 6px; }
+        .checkbox-label input { width: 18px; height: 18px; accent-color: #e67e22; }
+
+        .pool-status { margin-top: 20px; text-align: center; font-size: 0.95rem; font-weight: 700; color: #e67e22; background: #fff; padding: 8px; border-radius: 6px; border: 1px dashed #e67e22; }
+
+        .filter-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-apply { flex: 2; background: #2c3e50; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; }
+        .btn-cancel { flex: 1; background: #95a5a6; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+
+        /* 車票排版 */
+        .zoomed-ticket { transform: scale(0.5) translateY(100px); transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); width: 280px; background-color: #fdf7eb; background-image: radial-gradient(circle, #f3d4a4 1.5px, transparent 1.5px); background-size: 18px 18px; color: #1a1a1a; padding: 20px 25px; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; display: flex; flex-direction: column; border: 1px solid #d4c3b3; }
+        .overlay.active .zoomed-ticket { transform: scale(1.1) translateY(-20px); }
+
+        .tra-title { text-align: center; font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; letter-spacing: 2px; }
+        .tra-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; font-size: 1.1rem; font-weight: 500; }
+        .tra-row-small { display: flex; justify-content: space-between; align-items: flex-start; font-size: 0.9rem; margin-bottom: 15px; font-weight: 500;}
+        .tra-en-text { font-size: 0.65rem; color: #333; font-weight: 400; letter-spacing: 0.5px;}
+        .tra-main-body { display: flex; justify-content: space-between; margin-top: 5px; }
+
+        .tra-stations { width: 50%; display: flex; flex-direction: column; align-items: flex-start; }
+        .station-name { font-size: 2.2rem; font-weight: 700; line-height: 1.1; letter-spacing: 2px;}
+        .station-en { font-size: 0.8rem; margin-bottom: 2px; letter-spacing: 1px;}
+        .station-arrow { font-size: 1.2rem; margin: 4px 0 4px 15px; transform: scaleY(0.8); }
+        .tra-county-info { font-size: 0.9rem; font-weight: 500; margin-top: 8px; letter-spacing: 1px;}
+
+        .tra-info { width: 45%; display: flex; flex-direction: column; align-items: flex-end; text-align: right;}
+        .info-block { margin-bottom: 12px; }
+        .info-time { font-size: 1.2rem; font-weight: 500; }
+        .info-status { font-size: 1.1rem; font-weight: 500; }
+        .info-seat { font-size: 1.1rem; font-weight: 500; letter-spacing: 1px; }
+        .tra-price { font-size: 1.5rem; font-weight: 700; margin-top: 5px; margin-bottom: 15px;}
+
+        .tra-footer { border-top: 1px solid #aaa; padding-top: 8px; font-size: 0.8rem; text-align: right; line-height: 1.4; font-weight: 500;}
+        .tra-barcode { margin-top: 5px; height: 25px; width: 100%; background: repeating-linear-gradient(to right, #111, #111 2px, transparent 2px, transparent 4px, #111 4px, #111 5px, transparent 5px, transparent 7px); }
+
+        .reset-btn { margin-top: 20px; background-color: #2c3e50; color: white; border: 2px solid #fff; padding: 12px 30px; border-radius: 25px; font-size: 1.1rem; font-weight: 700; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transform: translateY(20px); opacity: 0; transition: all 0.5s ease 0.3s; }
+        .overlay.active .reset-btn { transform: translateY(0); opacity: 1; }
+        .dispense-anim { transform: translateX(-50%) translateY(0) !important; opacity: 1 !important; }
+    </style>
+</head>
+<body>
+
+    <div class="vending-machine">
+        <div class="machine-header">
+            台鐵自動售票機 TRA Ticket
+            <!-- 新增設定按鈕 -->
+            <button class="settings-btn" onclick="openFilterSettings()">⚙️ 篩選</button>
+        </div>
+        
+        <div class="screen-container">
+            <div class="screen">
+                <div class="screen-text" id="screen-status" style="color: #ff9900;">連線中...</div>
+                <div class="screen-dest" id="screen-result">載入車站庫</div>
+            </div>
+        </div>
+
+        <div class="machine-controls">
+            <button class="draw-btn" id="drawBtn" onclick="startDraw()" disabled>
+                <div style="line-height: 1.2;">抽取<br>車票</div>
+            </button>
+            <div style="margin-top: 25px; color: #555; font-size: 0.8rem; font-weight: bold; letter-spacing: 1px;">PUSH TO START</div>
+        </div>
+
+        <div class="dispenser-area">
+            <div class="dispenser-slot"></div>
+            <div class="ticket-wrapper" id="dispenseTicket">
+                <div class="small-ticket-preview">
+                    <div style="text-align: center; font-size: 0.8rem; font-weight: bold;">臺灣鐵路局</div>
+                    <div style="margin-top: 20px; font-weight: bold; font-size: 1.5rem; text-align: center;">臺北</div>
+                    <div style="text-align: center;">▼</div>
+                    <div style="font-weight: bold; font-size: 1.5rem; text-align: center;" id="small-ticket-dest">???</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 抽獎結果車票滿版層 -->
+    <div class="overlay" id="resultOverlay">
+        <div class="zoomed-ticket" id="finalTicket" style="display: none;">
+            <div class="tra-title">臺灣鐵路局</div>
+            <div class="tra-row">
+                <span id="ticket-date">YYYY.MM.DD</span>
+                <span>67次</span> 
+            </div>
+            <div class="tra-row-small"><span>全票</span> <span></span></div>
+            <div class="tra-main-body">
+                <div class="tra-stations">
+                    <div class="station-name">臺北</div>
+                    <div class="station-en">TAIPEI</div>
+                    <div class="station-arrow">▼</div>
+                    <div class="station-name" id="ticket-dest-ch">花蓮</div>
+                    <div class="station-en" id="ticket-dest-en">HUALIEN</div>
+                    <div class="tra-county-info"><span id="ticket-county">花蓮</span> 運量第<span id="ticket-rank">11</span>名</div>
+                </div>
+                <div class="tra-info">
+                    <div class="info-block">
+                        <span class="info-time" id="ticket-time">--:--</span><span class="info-status">開</span><br>
+                        <span class="tra-en-text">DEPARTURE</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="info-seat">1車 1號</span><br>
+                        <span class="tra-en-text">CAR.1 SEAT.1</span>
+                    </div>
+                    <div class="info-block">
+                        <span class="info-time">--:--</span><span class="info-status">到</span><br>
+                        <span class="tra-en-text">ARRIVAL</span>
+                    </div>
+                    <div class="tra-price">NT$67</div>
+                </div>
+            </div>
+            <div class="tra-footer">
+                限當日當次車有效<br>隨機抽取系統列印 [0001]<br>M90000133536266<br><div class="tra-barcode"></div>
+            </div>
+        </div>
+        <button class="reset-btn" id="closeTicketBtn" style="display: none;" onclick="resetMachine()">收下車票，再抽一次</button>
+    </div>
+
+    <!-- 篩選設定滿版層 -->
+    <div class="overlay" id="filterOverlay">
+        <div class="filter-modal">
+            <div class="filter-title">⚙️ 抽票池設定</div>
+            
+            <div class="filter-group">
+                <span class="filter-label">1. 避開大站 (依運量排名排除)</span>
+                <div class="filter-input-row">
+                    排除全台前 <input type="number" id="excludeRank" class="filter-input" value="0" min="0" max="239" oninput="previewPoolSize()"> 名
+                </div>
+                <div style="font-size: 0.8rem; color: #888; margin-top: 5px;">*輸入 0 代表不排除任何車站，輸入 100 則僅抽取 101 名之後的車站。</div>
+            </div>
+
+            <div class="filter-group">
+                <span class="filter-label">2. 指定旅行區域</span>
+                <div class="checkbox-grid">
+                    <label class="checkbox-label"><input type="checkbox" id="region-north" value="north" checked onchange="previewPoolSize()"> 北部 (基北北桃竹)</label>
+                    <label class="checkbox-label"><input type="checkbox" id="region-central" value="central" checked onchange="previewPoolSize()"> 中部 (苗中彰投雲)</label>
+                    <label class="checkbox-label"><input type="checkbox" id="region-south" value="south" checked onchange="previewPoolSize()"> 南部 (嘉南高屏)</label>
+                    <label class="checkbox-label"><input type="checkbox" id="region-east" value="east" checked onchange="previewPoolSize()"> 東部 (宜花東)</label>
+                </div>
+            </div>
+
+            <div class="pool-status" id="poolStatusText">目前可抽車站：計算中...</div>
+
+            <div class="filter-actions">
+                <button class="btn-cancel" onclick="closeFilterSettings()">取消</button>
+                <button class="btn-apply" onclick="applyFilterSettings()">儲存並套用</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 原始的所有車站資料 (全集)
+        let allStations = [];
+        // 當前可抽取的車站資料 (篩選後)
+        let activeStations = [];
+        
+        // 台灣縣市區域對照表
+        const regionMap = {
+            'north': ['基隆市', '臺北市', '新北市', '桃園市', '新竹市', '新竹縣'],
+            'central': ['苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣'],
+            'south': ['嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣'],
+            'east': ['宜蘭縣', '花蓮縣', '臺東縣']
+        };
+
+        const hardcodedData = `車站運量排名	車站代碼	車站名稱	英文站名	所在行政區	日平均進出站量 (人次)
+1	1000	臺北	Taipei	臺北市	63664
+2	1080	桃園	Taoyuan	桃園市	28402
+3	3300	臺中	Taichung	臺中市	26276
+4	4220	臺南	Tainan	臺南市	25936
+5	1100	中壢	Zhongli_Taoyuan	桃園市	25090
+6	1020	板橋	Banqiao	新北市	24661
+7	1210	新竹	Hsinchu	新竹市	20812
+8	990	松山	Songshan	臺北市	18260
+9	980	南港	Nangang	臺北市	15473
+10	4400	高雄	Kaohsiung	高雄市	15063
+11	1040	樹林	Shulin	新北市	14585
+12	3360	彰化	Changhua	彰化縣	13672
+13	4340	新左營	Xinzuoying	高雄市	13027
+14	970	汐科	Xike	新北市	11741
+15	7000	花蓮	Hualien	花蓮縣	11485
+16	5000	屏東	Pingtung	屏東縣	10926
+17	960	汐止	Xizhi	新北市	10911
+18	4080	嘉義	Chiayi	嘉義市	10366
+19	1090	內壢	Neili	桃園市	9849
+20	900	基隆	Keelung	基隆市	9356
+21	1250	竹南	Zhunan	苗栗縣	9008
+22	1070	鶯歌	Yingge	新北市	8947
+23	3340	新烏日	Xinwuri	臺中市	8308
+24	3230	豐原	Fengyuan	臺中市	8176
+25	3390	員林	Yuanlin	彰化縣	7674
+26	930	七堵	Qidu	基隆市	6331
+27	1110	埔心	Puxin	桃園市	5983
+28	1180	竹北	Zhubei	新竹縣	5920
+29	1170	新豐	Xinfeng	新竹縣	5877
+30	6000	臺東	Taitung	臺東縣	5801
+31	3470	斗六	Douliu	雲林縣	5794
+32	4440	鳳山	Fongshan	高雄市	5695
+33	3160	苗栗	Miaoli	苗栗縣	5676
+34	7360	瑞芳	Ruifang	新北市	5275
+35	4120	新營	Xinying	臺南市	5205
+36	1120	楊梅	Yangmei	桃園市	5154
+37	1010	萬華	Wanhua	臺北市	5005
+38	7160	羅東	Luodong	宜蘭縣	4923
+39	7190	宜蘭	Yilan	宜蘭縣	4267
+40	5050	潮州	Chaozhou	屏東縣	4154
+41	1194	六家	Liujia	新竹縣	3799
+42	4210	大橋	Daqiao	臺南市	3663
+43	1160	湖口	Hukou	新竹縣	3657
+44	4272	沙崙	Shalun	臺南市	3529
+45	4170	善化	Shanhua	臺南市	3407
+46	1030	浮洲	Fuzhou	新北市	3338
+47	3320	大慶	Daqing	臺中市	3220
+48	4200	永康	Yongkang	臺南市	3087
+49	2200	大甲	Dajia	臺中市	3053
+50	2230	沙鹿	Shalu	臺中市	2893
+51	1190	北新竹	North Hsinchu	新竹市	2828
+52	3270	松竹	Songzhu	臺中市	2793
+53	4310	岡山	Gangshan	高雄市	2757
+54	940	百福	Baifu	基隆市	2611
+55	3250	潭子	Tanzi	臺中市	2489
+56	3420	田中	Tianzhong	彰化縣	2453
+57	3220	后里	Houli	臺中市	2355
+58	4330	楠梓	Nanzi	高雄市	2352
+59	920	八堵	Badu	基隆市	2343
+60	3280	太原	Taiyuan	臺中市	2340
+61	4190	新市	Xinshi	臺南市	2210
+62	950	五堵	Wudu	新北市	2194
+63	1192	新莊	Xinzhuang	新竹市	2150
+64	3480	斗南	Dounan	雲林縣	2076
+65	3310	五權	Wuquan	臺中市	1956
+66	4060	民雄	Minxiong	嘉義縣	1944
+67	7210	礁溪	Jiaoxi	宜蘭縣	1893
+68	1130	富岡	Fugang	桃園市	1817
+69	4420	科工館	Science And Technology Museum	高雄市	1764
+70	1060	山佳	Shanjia	新北市	1702
+71	4050	大林	Dalin	嘉義縣	1691
+72	4290	大湖	Dahu	高雄市	1651
+73	4300	路竹	Luzhu	高雄市	1643
+74	2180	苑裡	Yuanli	苗栗縣	1606
+75	4250	保安	Bao'an	臺南市	1575
+76	6110	玉里	Yuli	花蓮縣	1532
+77	1075	鳳鳴	Fengming	新北市	1518
+78	910	三坑	Sankeng	基隆市	1513
+79	4320	橋頭	Qiaotou	高雄市	1490
+80	3290	精武	Jingwu	臺中市	1476
+81	2220	清水	Qingshui	臺中市	1427
+82	4370	美術館	Museum of Fine Arts	高雄市	1422
+83	4430	正義	Zhengyi	高雄市	1380
+84	4180	南科	Nanke	臺南市	1376
+85	1050	南樹林	South Shulin	新北市	1367
+86	4150	隆田	Longtian	臺南市	1325
+87	1220	三姓橋	Sanxingqiao	新竹市	1318
+88	7332	十分	Shifen	新北市	1297
+89	4460	九曲堂	Jiuqutang	高雄市	1260
+90	3370	花壇	Huatan	彰化縣	1248
+91	5120	枋寮	Fangliao	屏東縣	1187
+92	2130	後龍	Houlong	苗栗縣	1146
+93	7230	頭城	Toucheng	宜蘭縣	1131
+94	3410	社頭	Shetou	彰化縣	1127
+95	7290	福隆	Fulong	新北市	1105
+96	3430	二水	Ershui	彰化縣	1040
+97	3150	豐富	Fengfu	苗栗縣	1013
+98	3240	栗林	Lilin	臺中市	985
+99	3180	銅鑼	Tongluo	苗栗縣	971
+100	1150	北湖	Beihu	新竹縣	934
+101	4410	民族	Minzu	高雄市	931
+102	4360	內惟	Neiwei	高雄市	928
+103	5030	西勢	Xishi	屏東縣	927
+104	2150	白沙屯	Baishatun	苗栗縣	924
+105	3350	成功	Chenggong	臺中市	905
+106	2170	通霄	Tongxiao	苗栗縣	888
+107	3380	大村	Dacun	彰化縣	860
+108	1193	竹中	Zhuzhong	新竹縣	842
+109	4260	仁德	Rende	臺南市	827
+110	3450	林內	Linnei	雲林縣	810
+111	7310	雙溪	Shuangxi	新北市	809
+112	4350	左營	Zuoying	高雄市	794
+113	5230	知本	Zhiben	臺東縣	778
+114	7350	猴硐	Houtong	新北市	776
+115	4130	柳營	Liuying	臺南市	767
+116	2250	大肚	Dadu	臺中市	762
+117	3190	三義	Sanyi	苗栗縣	753
+118	7090	南澳	Nan'ao	宜蘭縣	742
+119	4070	嘉北	Jiabei	嘉義市	741
+120	6130	瑞穗	Ruisui	花蓮縣	738
+121	7380	四腳亭	Sijiaoting	新北市	735
+122	7130	蘇澳新	Su'aoxin	宜蘭縣	729
+123	7060	和平	Heping	花蓮縣	720
+124	3260	頭家厝	Toujiacuo	臺中市	713
+125	3330	烏日	Wuri	臺中市	695
+126	6070	池上	Chishang	臺東縣	688
+127	4390	三塊厝	Sankuaicuo	高雄市	677
+128	4450	後庄	Houzhuang	高雄市	675
+129	4090	水上	Shuishang	嘉義縣	663
+130	1230	香山	Xiangshan	新竹市	642
+131	6250	吉安	Ji'an	花蓮縣	621
+132	5210	金崙	Jinlun	臺東縣	619
+133	6050	關山	Guanshan	臺東縣	611
+134	4110	後壁	Houbi	臺南市	599
+135	7150	冬山	Dongshan	宜蘭縣	580
+136	1203	竹東	Zhudong	新竹縣	577
+137	4380	鼓山	Gushan	高雄市	569
+138	3400	永靖	Yongjing	彰化縣	568
+139	3210	泰安	Tai'an	臺中市	563
+140	5070	南州	Nanzhou	屏東縣	542
+140	4140	林鳳營	Linfengying	臺南市	542
+142	7390	暖暖	Nuannuan	基隆市	538
+143	6160	光復	Guangfu	花蓮縣	537
+144	7030	新城	Xincheng	花蓮縣	534
+145	5090	林邊	Linbian	屏東縣	531
+146	4271	長榮大學	Chang Jung Christian University	臺南市	530
+147	2240	龍井	Longjing	臺中市	520
+148	7120	蘇澳	Su'ao	宜蘭縣	506
+149	2260	追分	Zhuifen	臺中市	504
+150	1208	內灣	Neiwan	新竹縣	452
+151	6180	鳳林	Fenglin	花蓮縣	402
+152	6220	壽豐	Shoufeng	花蓮縣	400
+153	6240	志學	Zhixue	花蓮縣	388
+154	4270	中洲	Zhongzhou	臺南市	383
+155	3140	造橋	Zaoqiao	苗栗縣	368
+156	1140	新富	Xinfu	桃園市	365
+157	2190	日南	Rinan	臺中市	335
+158	1191	千甲	Qianjia	新竹市	316
+159	1240	崎頂	Qiding	苗栗縣	313
+160	5040	竹田	Zhutian	屏東縣	294
+161	5010	歸來	Guilai	屏東縣	283
+162	7335	平溪	Pingxi	新北市	263
+163	7336	菁桐	Jingtong	新北市	254
+164	7320	牡丹	Mudan	新北市	245
+165	5190	大武	Dawu	臺東縣	229
+166	6020	鹿野	Luye	臺東縣	228
+167	3460	石榴	Shiliu	雲林縣	220
+168	5020	麟洛	Linluo	屏東縣	210
+169	7362	八斗子	Badouzi	新北市	208
+170	7270	大里	Dali	宜蘭縣	204
+171	4100	南靖	Nanjing	嘉義縣	203
+172	6080	富里	Fuli	花蓮縣	202
+173	7260	大溪	Daxi	宜蘭縣	200
+174	1202	榮華	Ronghua	新竹縣	198
+175	5220	太麻里	Taimali	臺東縣	195
+176	7300	貢寮	Gongliao	新北市	177
+177	5100	佳冬	Jiadong	屏東縣	176
+177	7100	東澳	Dong'ao	宜蘭縣	176
+179	4160	拔林	Balin	臺南市	175
+179	7330	三貂嶺	Sandiaoling	新北市	175
+181	7010	北埔	Beipu	花蓮縣	174
+182	5060	崁頂	Kanding	屏東縣	163
+182	4470	六塊厝	Liukuaicuo	屏東縣	163
+184	7361	海科館	Haikeguan	基隆市	153
+185	3170	南勢	Nanshi	苗栗縣	149
+186	3490	石龜	Shigui	雲林縣	140
+187	7200	四城	Sicheng	宜蘭縣	134
+188	7180	二結	Erjie	宜蘭縣	128
+189	2210	臺中港	Taichung Port	臺中市	126
+190	7240	外澳	Wai'ao	宜蘭縣	120
+190	3434	集集	Jiji	南投縣	120
+192	5110	東海	Donghai	屏東縣	111
+193	7220	頂埔	Dingpu	宜蘭縣	101
+194	1204	橫山	Hengshan	新竹縣	94
+195	7250	龜山	Guishan	宜蘭縣	92
+196	3435	水里	Shuili	南投縣	87
+197	2120	大山	Dashan	苗栗縣	84
+198	3432	濁水	Zhuoshui	南投縣	82
+199	3436	車埕	Checheng	南投縣	77
+199	2160	新埔	Xinpu	苗栗縣	77
+201	1201	上員	Shangyuan	新竹縣	73
+202	1206	合興	Hexing	新竹縣	63
+203	5998	南方小站	South	屏東縣	61
+204	7050	和仁	Heren	花蓮縣	56
+205	2110	談文	Tanwen	苗栗縣	49
+206	1205	九讚頭	Jiuzantou	新竹縣	48
+207	1207	富貴	Fugui	新竹縣	44
+207	7170	中里	Zhongli_Yilan	宜蘭縣	44
+207	6170	萬榮	Wanrong	花蓮縣	44
+210	6210	豐田	Fengtian	花蓮縣	43
+211	6030	瑞源	Ruiyuan	臺東縣	41
+212	5130	加祿	Jialu	屏東縣	40
+212	6140	富源	Fuyuan	花蓮縣	40
+212	3431	源泉	Yuanquan	彰化縣	40
+215	7280	石城	Shicheng	宜蘭縣	36
+216	6200	林榮新光	Linrong Shin Kong	花蓮縣	35
+217	5080	鎮安	Zhen'an	屏東縣	34
+218	2140	龍港	Longgang	苗栗縣	33
+219	7334	嶺腳	Lingjiao	新北市	32
+220	7333	望古	Wanggu	新北市	27
+221	5200	瀧溪	Longxi	臺東縣	25
+222	5240	康樂	Kangle	臺東縣	20
+222	6190	南平	Nanping	花蓮縣	20
+224	7040	崇德	Chongde	花蓮縣	18
+225	7331	大華	Dahua	新北市	16
+226	7080	武塔	Wuta	宜蘭縣	14
+227	3433	龍泉	Longquan	南投縣	13
+227	7020	景美	Jingmei	花蓮縣	13
+227	7110	永樂	Yongle	宜蘭縣	13
+230	6100	東里	Dongli	花蓮縣	12
+231	6120	三民	Sanmin	花蓮縣	11
+232	6230	平和	Pinghe	花蓮縣	10
+233	7070	漢本	Hanben	宜蘭縣	9
+233	6060	海端	Haiduan	臺東縣	9
+233	6090	東竹	Dongzhu	花蓮縣	9
+236	6040	瑞和	Ruihe	臺東縣	8
+236	6010	山里	Shanli	臺東縣	8
+238	6150	大富	Dafu	花蓮縣	7
+239	5160	枋山	Fangshan	屏東縣	3
+240	5140	內獅	Neishi	屏東縣	2`;
+
+        const drawBtn = document.getElementById('drawBtn');
+        const screenStatus = document.getElementById('screen-status');
+        const screenResult = document.getElementById('screen-result');
+        const dispenseTicketObj = document.getElementById('dispenseTicket');
+        
+        const resultOverlay = document.getElementById('resultOverlay');
+        const finalTicket = document.getElementById('finalTicket');
+        const closeTicketBtn = document.getElementById('closeTicketBtn');
+
+        const filterOverlay = document.getElementById('filterOverlay');
+        const poolStatusText = document.getElementById('poolStatusText');
+
+        let isDrawing = false;
+
+        window.onload = function() {
+            Papa.parse(hardcodedData, {
+                delimiter: "\t",
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const data = results.data;
+                    allStations = data.map(row => ({
+                        name: row['車站名稱'],
+                        en: row['英文站名'],
+                        county: row['所在行政區'],
+                        rank: parseInt(row['車站運量排名']) || 999
+                    })).filter(s => s.name && s.name !== '臺北' && s.name !== '台北');
+
+                    // 初始化套用篩選
+                    applyFilterLogic();
+                },
+                error: function(err) {
+                    console.error("讀取失敗:", err);
+                    screenStatus.innerText = "系統錯誤";
+                    screenResult.innerText = "資料格式錯誤";
+                }
+            });
+        };
+
+        // 打開篩選設定
+        function openFilterSettings() {
+            if (isDrawing) return;
+            filterOverlay.classList.add('active');
+            previewPoolSize(); // 打開時預覽當前選項的數量
+        }
+
+        // 關閉篩選設定
+        function closeFilterSettings() {
+            filterOverlay.classList.remove('active');
+        }
+
+        // 預覽篩選後的數量 (不立即套用到機台)
+        function previewPoolSize() {
+            const tempStations = getFilteredStations();
+            poolStatusText.innerText = `目前可抽車站：共 ${tempStations.length} 站`;
+            if(tempStations.length === 0) {
+                poolStatusText.style.color = "#e74c3c";
+            } else {
+                poolStatusText.style.color = "#e67e22";
+            }
+        }
+
+        // 執行篩選邏輯，回傳符合條件的車站陣列
+        function getFilteredStations() {
+            const excludeRank = parseInt(document.getElementById('excludeRank').value) || 0;
+            
+            // 取得勾選的區域
+            const selectedRegions = [];
+            if(document.getElementById('region-north').checked) selectedRegions.push(...regionMap.north);
+            if(document.getElementById('region-central').checked) selectedRegions.push(...regionMap.central);
+            if(document.getElementById('region-south').checked) selectedRegions.push(...regionMap.south);
+            if(document.getElementById('region-east').checked) selectedRegions.push(...regionMap.east);
+
+            return allStations.filter(s => {
+                // 1. 排名排除
+                if (s.rank <= excludeRank) return false;
+                // 2. 區域包含
+                if (!selectedRegions.includes(s.county)) return false;
+                
+                return true;
+            });
+        }
+
+        // 儲存並套用篩選設定
+        function applyFilterSettings() {
+            applyFilterLogic();
+            closeFilterSettings();
+        }
+
+        function applyFilterLogic() {
+            activeStations = getFilteredStations();
+            
+            if (activeStations.length > 0) {
+                screenStatus.innerText = `車站池：${activeStations.length}站`;
+                screenStatus.style.color = "#00ffcc";
+                screenResult.innerText = "請按鈕抽票";
+                drawBtn.disabled = false;
+            } else {
+                screenStatus.innerText = "車站池為空";
+                screenStatus.style.color = "#ff3333";
+                screenResult.innerText = "請重新設定";
+                drawBtn.disabled = true;
+            }
+        }
+
+        function startDraw() {
+            if (isDrawing || activeStations.length === 0) return;
+            isDrawing = true;
+            
+            drawBtn.disabled = true;
+            drawBtn.classList.add('pressed');
+            
+            screenStatus.innerText = "目的地運算中...";
+            screenStatus.style.color = "#ff3366";
+            
+            let shuffleCount = 0;
+            const shuffler = setInterval(() => {
+                const randomStation = activeStations[Math.floor(Math.random() * activeStations.length)];
+                screenResult.innerText = randomStation.name;
+                shuffleCount++;
+
+                if (shuffleCount >= 20) {
+                    clearInterval(shuffler);
+                    finishDraw();
+                }
+            }, 80);
+        }
+
+        function finishDraw() {
+            const finalStationObj = activeStations[Math.floor(Math.random() * activeStations.length)];
+            
+            screenStatus.innerText = "出票中，請取票";
+            screenStatus.style.color = "#00ffcc";
+            screenResult.innerText = finalStationObj.name;
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            document.getElementById('ticket-date').innerText = `${year}.${month}.${day}`;
+            document.getElementById('ticket-time').innerText = `${hours}:${minutes}`;
+            
+            document.getElementById('small-ticket-dest').innerText = finalStationObj.name;
+            document.getElementById('ticket-dest-ch').innerText = finalStationObj.name;
+            document.getElementById('ticket-dest-en').innerText = finalStationObj.en || '';
+            document.getElementById('ticket-county').innerText = finalStationObj.county || '';
+            document.getElementById('ticket-rank').innerText = finalStationObj.rank || '?';
+
+            setTimeout(() => {
+                dispenseTicketObj.classList.add('dispense-anim');
+                setTimeout(() => { 
+                    resultOverlay.classList.add('active'); 
+                    finalTicket.style.display = "flex";
+                    closeTicketBtn.style.display = "block";
+                }, 1200); 
+            }, 500);
+        }
+
+        function resetMachine() {
+            resultOverlay.classList.remove('active');
+            setTimeout(() => {
+                finalTicket.style.display = "none";
+                closeTicketBtn.style.display = "none";
+                dispenseTicketObj.classList.remove('dispense-anim');
+                
+                screenStatus.innerText = `車站池：${activeStations.length}站`;
+                screenResult.innerText = "請按鈕抽票";
+                drawBtn.disabled = false;
+                drawBtn.classList.remove('pressed');
+                isDrawing = false;
+            }, 500); 
+        }
+    </script>
+</body>
+</html>
